@@ -138,7 +138,7 @@ async def classifyImage(request):
 
 def create_spectrograms(audio_path):
     print(f'Processing spectogram')
-    filename = audio_path.replace('.mp3', '.png')
+    filename = audio_path.with_suffix('.png')
     samples, sample_rate = librosa.load(audio_path, duration=4.0)
     fig = plt.figure(figsize=[0.72, 0.72])
     ax = fig.add_subplot(111)
@@ -159,7 +159,7 @@ async def classifySound(request):
     fileitem = data['audio']
 
     if fileitem.filename:
-        audio_path = './app/data/sound-detection/' + fileitem.filename
+        audio_path = path / 'data/sound-detection' / fileitem.filename
         open(audio_path, 'wb').write(fileitem.file.read())
         filename = create_spectrograms(audio_path)
         spectogram = open_image(filename)
