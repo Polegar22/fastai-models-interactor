@@ -5,6 +5,7 @@ RUN apt install -y python3-dev gcc
 
 ADD requirements.txt requirements.txt
 RUN pip install -r requirements.txt
+RUN sudo apt-get install ffmpeg
 
 COPY app app/
 
