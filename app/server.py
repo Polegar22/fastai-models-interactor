@@ -5,7 +5,6 @@ from starlette.middleware.cors import CORSMiddleware
 from starlette.responses import HTMLResponse, JSONResponse
 from starlette.staticfiles import StaticFiles
 
-from app.utils import *
 import librosa
 import librosa.display
 
