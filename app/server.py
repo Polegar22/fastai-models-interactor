@@ -193,8 +193,11 @@ async def generateText(request):
     learn = await setup_learner(path / 'models/nlp')
     data = await request.form()
     entry_text = data['entry_text']
+    nb_words = data['nb_words']
+    randomness = data['randomness']
     if entry_text:
-        return JSONResponse({'result': learn.predict(entry_text, 45, temperature=0.75) + ' ...'})
+        return JSONResponse(
+            {'result': learn.predict(entry_text, int(nb_words), temperature=float(randomness)) + ' ...'})
 
 
 if __name__ == '__main__':
