@@ -6,6 +6,7 @@ RUN apt install -y ffmpeg
 
 ADD requirements.txt requirements.txt
 RUN pip install -r requirements.txt
+RUN pip install --upgrade fastai torch==1.0.0
 
 COPY app app/
 
