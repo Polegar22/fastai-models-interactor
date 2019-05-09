@@ -200,6 +200,15 @@ async def generateText(request):
             {'result': learn.predict(entry_text, int(nb_words), temperature=float(randomness)) + ' ...'})
 
 
+@app.route('/api/image-reconstruction', methods=['POST'])
+async def reconstructImage(request):
+    # learn = await setup_learner(path / 'models/image-reconstruction')
+    data = await request.form()
+    image = data['image']
+    if image:
+        return JSONResponse({'result': 'cc'})
+
+
 if __name__ == '__main__':
     if 'serve' in sys.argv:
         uvicorn.run(app, host='0.0.0.0', port=8080)
