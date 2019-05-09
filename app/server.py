@@ -1,14 +1,12 @@
-import aiohttp
+import librosa
+import librosa.display
 import uvicorn
+from fastai.vision import *
 from starlette.applications import Starlette
 from starlette.middleware.cors import CORSMiddleware
 from starlette.responses import HTMLResponse, JSONResponse
 from starlette.staticfiles import StaticFiles
-
-import librosa
-import librosa.display
-
-from fastai.vision import *
+import base64
 
 SOUND_TYPES = ['Accelerating_and_revving_and_vroom',
                'Accordion',
@@ -97,14 +95,6 @@ app.add_middleware(CORSMiddleware, allow_origins=['*'], allow_headers=['X-Reques
 app.mount('/static', StaticFiles(directory='app/static'))
 
 
-async def download_file(url, dest):
-    if dest.exists(): return
-    async with aiohttp.ClientSession() as session:
-        async with session.get(url) as response:
-            data = await response.read()
-            with open(dest, 'wb') as f: f.write(data)
-
-
 async def setup_learner(pathToModel):
     defaults.device = torch.device('cpu')
     learn = load_learner(pathToModel)
@@ -135,6 +125,12 @@ def index(request):
     return HTMLResponse(html.open().read())
 
 
+@app.route('/image-reconstruction', methods=['GET'])
+def index(request):
+    html = path / 'view' / 'index.html'
+    return HTMLResponse(html.open().read())
+
+
 @app.route('/api/image-recognition', methods=['POST'])
 async def classifyImage(request):
     learn = await setup_learner(path / 'models/image-recognition')
@@ -149,6 +145,30 @@ async def classifyImage(request):
         response = 'Well ... you can do better.'
 
     return JSONResponse({'result': response})
+
+
+class FeatureLoss(nn.Module):
+    def __init__(self, m_feat, layer_ids, layer_wgts):
+        super().__init__()
+
+    def forward(self, input, target):
+        return input
+
+    def __del__(self): self.hooks.remove()
+
+
+@app.route('/api/image-reconstruction', methods=['POST'])
+async def reconstructImage(request):
+    learn = await setup_learner(path / 'models/image-reconstruction')
+    data = await request.form()
+    onlyBase64 = data['image'].replace('data:image/png;base64,', '')
+    decoded = base64.b64decode(onlyBase64)
+    bytes = BytesIO(decoded)
+    img = open_image(bytes)
+    prediction = learn.predict(img)[0]
+    prediction.show(figsize=(10, 5), title='Restored')
+    if prediction:
+        return JSONResponse({'result': 'cc'})
 
 
 def create_spectrograms(audio_path):
@@ -198,15 +218,6 @@ async def generateText(request):
     if entry_text:
         return JSONResponse(
             {'result': learn.predict(entry_text, int(nb_words), temperature=float(randomness)) + ' ...'})
-
-
-@app.route('/api/image-reconstruction', methods=['POST'])
-async def reconstructImage(request):
-    # learn = await setup_learner(path / 'models/image-reconstruction')
-    data = await request.form()
-    image = data['image']
-    if image:
-        return JSONResponse({'result': 'cc'})
 
 
 if __name__ == '__main__':
