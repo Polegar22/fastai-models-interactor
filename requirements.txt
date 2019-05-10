@@ -8,3 +8,4 @@ uvicorn
 python-multipart
 aiofiles
 aiohttp
+opencv-python

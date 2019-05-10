@@ -1,12 +1,13 @@
+import base64
+
 import librosa
 import librosa.display
 import uvicorn
 from fastai.vision import *
 from starlette.applications import Starlette
 from starlette.middleware.cors import CORSMiddleware
-from starlette.responses import HTMLResponse, JSONResponse
+from starlette.responses import HTMLResponse, JSONResponse, FileResponse, Response
 from starlette.staticfiles import StaticFiles
-import base64
 
 SOUND_TYPES = ['Accelerating_and_revving_and_vroom',
                'Accordion',
@@ -159,6 +160,8 @@ class FeatureLoss(nn.Module):
 
 @app.route('/api/image-reconstruction', methods=['POST'])
 async def reconstructImage(request):
+    filename = 'prediction.jpg'
+    path_to_file = path / 'models/image-reconstruction' / filename
     learn = await setup_learner(path / 'models/image-reconstruction')
     data = await request.form()
     onlyBase64 = data['image'].replace('data:image/png;base64,', '')
@@ -166,9 +169,12 @@ async def reconstructImage(request):
     bytes = BytesIO(decoded)
     img = open_image(bytes)
     prediction = learn.predict(img)[0]
-    prediction.show(figsize=(10, 5), title='Restored')
-    if prediction:
-        return JSONResponse({'result': 'cc'})
+    prediction.save(path_to_file)
+
+    with open(path_to_file, "rb") as image_file:
+        encoded_string = base64.b64encode(image_file.read())
+
+        return Response(encoded_string, media_type='application/octet-stream')
 
 
 def create_spectrograms(audio_path):
