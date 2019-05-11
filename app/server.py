@@ -1,105 +1,18 @@
 import base64
 
-import librosa
-import librosa.display
 import uvicorn
 from fastai.vision import *
 from starlette.applications import Starlette
 from starlette.middleware.cors import CORSMiddleware
-from starlette.responses import HTMLResponse, JSONResponse, FileResponse, Response
+from starlette.responses import HTMLResponse, JSONResponse, Response
 from starlette.staticfiles import StaticFiles
 
-SOUND_TYPES = ['Accelerating_and_revving_and_vroom',
-               'Accordion',
-               'Acoustic_guitar',
-               'Applause',
-               'Bark',
-               'Bass_drum',
-               'Bass_guitar',
-               'Bathtub_(filling_or_washing)',
-               'Bicycle_bell',
-               'Burping_and_eructation',
-               'Bus',
-               'Buzz',
-               'Car_passing_by',
-               'Cheering',
-               'Chewing_and_mastication',
-               'Child_speech_and_kid_speaking',
-               'Chink_and_clink',
-               'Chirp_and_tweet',
-               'Church_bell',
-               'Clapping',
-               'Computer_keyboard',
-               'Crackle',
-               'Cricket',
-               'Crowd',
-               'Cupboard_open_or_close',
-               'Cutlery_and_silverware',
-               'Dishes_and_pots_and_pans',
-               'Drawer_open_or_close',
-               'Drip',
-               'Electric_guitar',
-               'Fart',
-               'Female_singing',
-               'Female_speech_and_woman_speaking',
-               'Fill_(with_liquid)',
-               'Finger_snapping',
-               'Frying_(food)',
-               'Gasp',
-               'Glockenspiel',
-               'Gong',
-               'Gurgling',
-               'Harmonica',
-               'Hi-hat',
-               'Hiss',
-               'Keys_jangling',
-               'Knock',
-               'Male_singing',
-               'Male_speech_and_man_speaking',
-               'Marimba_and_xylophone',
-               'Mechanical_fan',
-               'Meow',
-               'Microwave_oven',
-               'Motorcycle',
-               'Printer',
-               'Purr',
-               'Race_car_and_auto_racing',
-               'Raindrop',
-               'Run',
-               'Scissors',
-               'Screaming',
-               'Shatter',
-               'Sigh',
-               'Sink_(filling_or_washing)',
-               'Skateboard',
-               'Slam',
-               'Sneeze',
-               'Squeak',
-               'Stream',
-               'Strum',
-               'Tap',
-               'Tick-tock',
-               'Toilet_flush',
-               'Traffic_noise_and_roadway_noise',
-               'Trickle_and_dribble',
-               'Walk_and_footsteps',
-               'Water_tap_and_faucet',
-               'Waves_and_surf',
-               'Whispering',
-               'Writing',
-               'Yell',
-               'Zipper_(clothing)']
+from app.src import image_recognition, image_reconstruction, sound_recognition, nlp
 
 path = Path(__file__).parent
 app = Starlette()
 app.add_middleware(CORSMiddleware, allow_origins=['*'], allow_headers=['X-Requested-With', 'Content-Type'])
 app.mount('/static', StaticFiles(directory='app/static'))
-
-
-async def setup_learner(pathToModel):
-    defaults.device = torch.device('cpu')
-    learn = load_learner(pathToModel)
-    return learn
 
 
 @app.route('/')
@@ -133,23 +46,18 @@ def index(request):
 
 
 @app.route('/api/image-recognition', methods=['POST'])
-async def classifyImage(request):
-    learn = await setup_learner(path / 'models/image-recognition')
+async def classify_image(request):
     data = await request.form()
     img_bytes = await (data['file'].read())
-    img = open_image(BytesIO(img_bytes))
-    prediction = learn.predict(img)[0]
 
-    if prediction.obj == 'beauty':
-        response = 'This is my taste ! '
-    else:
-        response = 'Well ... you can do better.'
+    response = await image_recognition.predict_image(path / 'models/image-recognition', img_bytes)
 
     return JSONResponse({'result': response})
 
 
+# Forced to put the fake FeatureLoss here, otherwise the reconstruction model can't retrieve it
 class FeatureLoss(nn.Module):
-    def __init__(self, m_feat, layer_ids, layer_wgts):
+    def __init__(self):
         super().__init__()
 
     def forward(self, input, target):
@@ -159,71 +67,37 @@ class FeatureLoss(nn.Module):
 
 
 @app.route('/api/image-reconstruction', methods=['POST'])
-async def reconstructImage(request):
+async def reconstruct_image(request):
     filename = 'prediction.jpg'
-    path_to_file = path / 'models/image-reconstruction' / filename
-    learn = await setup_learner(path / 'models/image-reconstruction')
+    path_to_file = path / 'data/image-reconstruction' / filename
     data = await request.form()
-    onlyBase64 = data['image'].replace('data:image/png;base64,', '')
-    decoded = base64.b64decode(onlyBase64)
-    bytes = BytesIO(decoded)
-    img = open_image(bytes)
-    prediction = learn.predict(img)[0]
-    prediction.save(path_to_file)
 
+    reconstructed = await image_reconstruction.reconstruct_image(path / 'models/image-reconstruction', data)
+
+    reconstructed.save(path_to_file)
     with open(path_to_file, "rb") as image_file:
         encoded_string = base64.b64encode(image_file.read())
-
         return Response(encoded_string, media_type='application/octet-stream')
 
 
-def create_spectrograms(audio_path):
-    print(f'Processing spectogram')
-    filename = audio_path.with_suffix('.png')
-    samples, sample_rate = librosa.load(audio_path, duration=4.0)
-    fig = plt.figure(figsize=[0.72, 0.72])
-    ax = fig.add_subplot(111)
-    ax.axes.get_xaxis().set_visible(False)
-    ax.axes.get_yaxis().set_visible(False)
-    ax.set_frame_on(False)
-    S = librosa.feature.melspectrogram(y=samples, sr=sample_rate)
-    librosa.display.specshow(librosa.power_to_db(S, ref=np.max))
-    plt.savefig(filename, dpi=400, bbox_inches='tight', pad_inches=0)
-    plt.close('all')
-    return filename
-
-
 @app.route('/api/sound-detection', methods=['POST'])
-async def classifySound(request):
-    learn = await setup_learner(path / 'models/sound-detection')
+async def classify_sound(request):
     data = await request.form()
     fileitem = data['audio']
 
     if fileitem.filename:
         audio_path = path / 'data/sound-detection' / fileitem.filename
         open(audio_path, 'wb').write(fileitem.file.read())
-        filename = create_spectrograms(audio_path)
-        spectogram = open_image(filename)
-        pred_class, pred_idx, outputs = learn.predict(spectogram)
-
-        if not pred_class.obj:
-            pred_class.obj = SOUND_TYPES[(outputs == torch.max(outputs)).nonzero()]
-        else:
-            pred_class.obj = ', '.join(pred_class.obj)
-
-        return JSONResponse({'result': 'This is a : ' + pred_class.obj})
+        prediction = await sound_recognition.classify_sound(path / 'models/sound-detection', audio_path)
+        return JSONResponse({'result': 'This is a : ' + prediction})
 
 
 @app.route('/api/nlp', methods=['POST'])
-async def generateText(request):
-    learn = await setup_learner(path / 'models/nlp')
+async def generate_text(request):
     data = await request.form()
-    entry_text = data['entry_text']
-    nb_words = data['nb_words']
-    randomness = data['randomness']
-    if entry_text:
-        return JSONResponse(
-            {'result': learn.predict(entry_text, int(nb_words), temperature=float(randomness)) + ' ...'})
+    generated_text = await nlp.nlp_generation(path / 'models/nlp', data)
+    return JSONResponse(
+        {'result': generated_text + ' ...'})
 
 
 if __name__ == '__main__':
