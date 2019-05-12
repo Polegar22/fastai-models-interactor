@@ -7,7 +7,7 @@ from starlette.middleware.cors import CORSMiddleware
 from starlette.responses import HTMLResponse, JSONResponse, Response
 from starlette.staticfiles import StaticFiles
 
-from src import image_recognition, image_reconstruction, sound_recognition, nlp
+from app import image_reconstruction, nlp, image_recognition, sound_recognition
 
 path = Path(__file__).parent
 app = Starlette()
