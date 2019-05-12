@@ -2,7 +2,7 @@ import librosa
 import librosa.display
 from fastai.vision import *
 
-from app.src import learner_creator
+from src import learner_creator
 
 SOUND_TYPES = ['Accelerating_and_revving_and_vroom',
                'Accordion',

@@ -1,4 +1,4 @@
-from app.src import learner_creator
+from src import learner_creator
 
 
 async def nlp_generation(path, data):

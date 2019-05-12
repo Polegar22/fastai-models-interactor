@@ -1,5 +1,5 @@
 from fastai.vision import *
-from app.src import learner_creator
+from src import learner_creator
 
 
 async def predict_image(path, img_bytes):

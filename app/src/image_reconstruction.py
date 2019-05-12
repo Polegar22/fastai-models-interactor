@@ -2,7 +2,7 @@ import base64
 
 from fastai.vision import *
 
-from app.src import learner_creator
+from src import learner_creator
 
 
 async def reconstruct_image(path, data):
