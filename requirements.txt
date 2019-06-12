@@ -1,7 +1,7 @@
 librosa
 -f https://download.pytorch.org/whl/nightly/cpu/torch_nightly.html
 torch_nightly
-torch==1.0.0
+torch==1.1.0
 fastai
 starlette
 uvicorn
